@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from io import BytesIO
-from typing import AsyncGenerator
 import base64
 
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from typing import AsyncGenerator
+
 
 import pyspz
 
-from config.settings import settings
+from config import settings
 from logger_config import logger
 from schemas import GenerateRequest, GenerateResponse
 from modules import GenerationPipeline
@@ -30,7 +31,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=settings.api.api_title,
+    title=settings.api_title,
     lifespan=lifespan,
 )
 
@@ -45,10 +46,7 @@ app.add_middleware(
 @app.get("/health")
 async def health() -> dict[str, str]:
     """
-    Check if the service is running. 
-
-    Returns:
-        dict[str, str]: Status of the service
+    Check if the service is running.
     """
     return {"status": "ready"}
 
@@ -65,7 +63,7 @@ async def generate_from_base64(request: GenerateRequest) -> GenerateResponse:
         compressed_ply_bytes = None
 
         # compress the ply file 
-        if result.ply_file_base64 and settings.output.compression:
+        if result.ply_file_base64 and settings.compression:
             compressed_ply_bytes = pyspz.compress(result.ply_file_base64, workers=1) # returns bytes
             logger.info(f"Compressed PLY size: {len(compressed_ply_bytes)} bytes")
         
@@ -111,6 +109,7 @@ async def generate(prompt_image_file: UploadFile = File(...), seed: int = Form(-
     except Exception as exc:
         logger.exception(f"Error generating from upload: {exc}")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
 
 @app.post("/generate-spz")
 async def generate(prompt_image_file: UploadFile = File(...), seed: int = Form(-1)) -> StreamingResponse:
@@ -161,7 +160,8 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "serve:app",
-        host=settings.api.host,
-        port=settings.api.port,
+        host=settings.host,
+        port=settings.port,
         reload=False,
     )
+
