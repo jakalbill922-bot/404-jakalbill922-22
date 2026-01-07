@@ -86,7 +86,7 @@ class TrellisService:
                         "steps": params.slat_steps,
                         "cfg_strength": params.slat_cfg_strength,
                     },
-                    preprocess_image=True,
+                    preprocess_image=False,
                     formats=["gaussian"],
                     num_oversamples=params.num_oversamples,
                     voxel_threshold=25000,

@@ -3,8 +3,18 @@ from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
+from pydantic import BaseModel
 
 config_dir = Path(__file__).parent
+
+class BackgroundRemovalConfig(BaseModel):
+    """Background removal configuration"""
+    model_id: str = "PramaLLC/BEN2"
+    input_image_size: tuple[int, int] = (1024, 1024)
+    output_image_size: tuple[int, int] = (518, 518)
+    padding_percentage: float = 0.2
+    limit_padding: bool = True
+    gpu: int = 0
 
 class Settings(BaseSettings):
     api_title: str = "3D Generation pipeline Service"
@@ -48,6 +58,8 @@ class Settings(BaseSettings):
     output_image_size: tuple[int, int] = Field(default=(518, 518), env="OUTPUT_IMAGE_SIZE") # (height, width)
     padding_percentage: float = Field(default=0.2, env="PADDING_PERCENTAGE")
     limit_padding: bool = Field(default=True, env="LIMIT_PADDING")
+    
+    background_removal: BackgroundRemovalConfig = Field(default_factory=BackgroundRemovalConfig)
 
     class Config:
         env_file = ".env"
@@ -55,6 +67,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+background_removal = BackgroundRemovalConfig()
 
-__all__ = ["Settings", "settings"]
+__all__ = ["Settings", "settings", "BackgroundRemovalConfig", "background_removal"]
 

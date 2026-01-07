@@ -22,6 +22,7 @@ from schemas import (
 )
 from modules.image_edit.qwen_edit_module import QwenEditModule
 from modules.gs_generator.trellis_manager import TrellisService
+from modules.background_removal.ben2_module import BEN2BackgroundRemovalService
 from modules.utils import (
     secure_randint,
     set_random_seed,
@@ -42,7 +43,7 @@ class GenerationPipeline:
         # Initialize modules
         self.qwen_edit = QwenEditModule(settings)
         self.trellis = TrellisService(settings)
-        
+        self.rmbg = BEN2BackgroundRemovalService(settings.background_removal)
         self.feature_info = None
     
     async def startup(self) -> None:
@@ -51,6 +52,7 @@ class GenerationPipeline:
         self.settings.output_dir.mkdir(parents=True, exist_ok=True)
 
         await self.qwen_edit.startup()
+        await self.rmbg.startup()
         await self.trellis.startup()
 
         logger.info("Warming up generator...")
@@ -65,6 +67,7 @@ class GenerationPipeline:
 
         # Shutdown all modules
         await self.qwen_edit.shutdown()
+        await self.rmbg.shutdown()
         await self.trellis.shutdown()
 
         logger.info("Pipeline closed.")
@@ -172,12 +175,9 @@ class GenerationPipeline:
 
         # Decode input image
         image = decode_image(request.prompt_image)
-
-        # default_feature = await self.select_feature(image)
         default_feature = False
-        
         if default_feature:
-            image_without_background = image
+            image_without_background = self.rmbg.remove_background(image)
             trellis_result: Optional[TrellisResult] = None
 
             # Resolve Trellis parameters from request
@@ -196,26 +196,29 @@ class GenerationPipeline:
             image_edited = self.qwen_edit.edit_image(
                 prompt_image=image,
                 seed=request.seed,
-                prompt="Show this object in left three-quarters view and make sure it is fully visible. Turn background black color contrasting with an object. Keep object colors and shape and texture. Keep extra near objects of background. Sharpen image details",
+                prompt="Show this object in left three-quarters view and make sure it is fully visible. Turn background black color contrasting with an object. Delete background details. Delete watermarks. Keep object colors. Sharpen image details",
             )
 
             # 2. Remove background
+            # image_without_background = self.rmbg.remove_background(image_edited)
             image_without_background = image_edited
 
             # add another view of the image
             image_edited_2 = self.qwen_edit.edit_image(
                 prompt_image=image,
                 seed=request.seed,
-                prompt="Show this object in right three-quarters view and make sure it is fully visible. Turn background black color contrasting with an object. Keep object colors and shape and texture. Keep extra near objects of background. Sharpen image details",
+                prompt="Show this object in right three-quarters view and make sure it is fully visible. Turn background black color contrasting with an object. Delete background details. Delete watermarks. Keep object colors. Sharpen image details",
             )
+            # image_without_background_2 = self.rmbg.remove_background(image_edited_2)
             image_without_background_2 = image_edited_2
             
             # add another view of the image
             image_edited_3 = self.qwen_edit.edit_image(
                 prompt_image=image,
                 seed=request.seed,
-                prompt="Show this object in back view and make sure it is fully visible. Turn background black color contrasting with an object. Keep object colors and shape and texture. Keep extra near objects of background. Sharpen image details",
+                prompt="Show this object in back view and make sure it is fully visible. Turn background black color contrasting with an object. Delete background details. Delete watermarks. Keep object colors. Sharpen image details",
             )
+            # image_without_background_3 = self.rmbg.remove_background(image_edited_3)
             image_without_background_3 = image_edited_3
 
             trellis_result: Optional[TrellisResult] = None
